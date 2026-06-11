@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { User, Mail, Phone, MapPin, Lock, Save, Store, Camera, CheckCircle } from "lucide-react";
-import { updateUser } from "../api/client";
+import { updateUser, uploadUserAvatar } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -21,6 +21,27 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "password">("profile");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+
+    setUploadingAvatar(true);
+    try {
+      const { url } = await uploadUserAvatar(file);
+      await updateProfile({ ...currentUser, avatar: url });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      console.error("Failed to upload avatar", error);
+      alert("Failed to upload avatar. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     if (!isLoggedIn) navigate("/login");
@@ -64,15 +85,28 @@ export function ProfilePage() {
           <div className="flex flex-col sm:flex-row items-center gap-5">
             <div className="relative">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
-                {currentUser.avatar ? (
+                {uploadingAvatar ? (
+                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                ) : currentUser.avatar ? (
                   <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-10 h-10 text-blue-400" />
                 )}
               </div>
-              <button className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md hover:bg-blue-700 transition-colors">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
                 <Camera className="w-4 h-4" />
               </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleAvatarChange}
+                accept="image/jpeg, image/png, image/webp"
+                className="hidden"
+              />
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-gray-900">{currentUser.name}</h1>

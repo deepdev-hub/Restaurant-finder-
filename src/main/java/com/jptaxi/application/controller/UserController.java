@@ -17,6 +17,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+
+import java.io.IOException;
+import java.util.Map;
 
 import com.jptaxi.application.dto.CreateUserRequest;
 import com.jptaxi.application.dto.ForgotPasswordRequest;
@@ -31,6 +36,7 @@ import com.jptaxi.application.repository.UserRepository;
 import com.jptaxi.application.service.DtoMapper;
 import com.jptaxi.application.service.PasswordResetEmailService;
 import com.jptaxi.application.service.PasswordResetTokenService;
+import com.jptaxi.application.service.SupabaseStorageService;
 
 @RestController
 @RequestMapping("/api/users")
@@ -46,6 +52,7 @@ public class UserController {
     private final DtoMapper mapper;
     private final PasswordResetTokenService passwordResetTokenService;
     private final PasswordResetEmailService passwordResetEmailService;
+    private final SupabaseStorageService supabaseStorageService;
     private final String resetPasswordUrl;
 
     public UserController(
@@ -53,12 +60,14 @@ public class UserController {
             DtoMapper mapper,
             PasswordResetTokenService passwordResetTokenService,
             PasswordResetEmailService passwordResetEmailService,
+            SupabaseStorageService supabaseStorageService,
             @Value("${app.frontend.reset-password-url:http://localhost:5173/reset-password}") String resetPasswordUrl
     ) {
         this.userRepository = userRepository;
         this.mapper = mapper;
         this.passwordResetTokenService = passwordResetTokenService;
         this.passwordResetEmailService = passwordResetEmailService;
+        this.supabaseStorageService = supabaseStorageService;
         this.resetPasswordUrl = resetPasswordUrl;
     }
 
@@ -130,6 +139,19 @@ public class UserController {
                     return ResponseEntity.ok(mapper.toUserDto(userRepository.save(user)));
                 })
                 .orElse(ResponseEntity.badRequest().build());
+    }
+
+    @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadAvatar(@RequestParam("image") MultipartFile image) {
+        try {
+            if (image == null || image.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Image is required"));
+            }
+            String url = supabaseStorageService.uploadImage(image, "avatars");
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (IOException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Cannot store avatar image"));
+        }
     }
 
     @PostMapping

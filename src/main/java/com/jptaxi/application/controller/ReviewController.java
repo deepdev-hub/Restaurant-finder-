@@ -43,6 +43,7 @@ import com.jptaxi.application.repository.ReviewReactionRepository;
 import com.jptaxi.application.repository.ReviewRepository;
 import com.jptaxi.application.repository.UserRepository;
 import com.jptaxi.application.service.DtoMapper;
+import com.jptaxi.application.service.SupabaseStorageService;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -57,7 +58,7 @@ public class ReviewController {
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
     private final DtoMapper mapper;
-    private final Path reviewUploadRoot;
+    private final SupabaseStorageService supabaseStorageService;
 
     public ReviewController(
             ReviewRepository reviewRepository,
@@ -65,14 +66,14 @@ public class ReviewController {
             RestaurantRepository restaurantRepository,
             UserRepository userRepository,
             DtoMapper mapper,
-            @Value("${app.upload.review-dir:uploads/reviews}") String reviewUploadDir
+            SupabaseStorageService supabaseStorageService
     ) {
         this.reviewRepository = reviewRepository;
         this.reviewReactionRepository = reviewReactionRepository;
         this.restaurantRepository = restaurantRepository;
         this.userRepository = userRepository;
         this.mapper = mapper;
-        this.reviewUploadRoot = Paths.get(reviewUploadDir).toAbsolutePath().normalize();
+        this.supabaseStorageService = supabaseStorageService;
     }
 
     @GetMapping
@@ -194,30 +195,7 @@ public class ReviewController {
         return ResponseEntity.ok(mapper.toReviewDto(reviewRepository.saveAndFlush(review), user.getId()));
     }
 
-    @GetMapping("/images/{fileName:.+}")
-    public ResponseEntity<Resource> getReviewImage(@PathVariable String fileName) throws MalformedURLException {
-        Path imagePath = reviewUploadRoot.resolve(fileName).normalize();
-        if (!imagePath.startsWith(reviewUploadRoot)) {
-            return ResponseEntity.badRequest().build();
-        }
 
-        Resource resource = new UrlResource(imagePath.toUri());
-        if (!resource.exists() || !resource.isReadable()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        String contentType;
-        try {
-            contentType = Files.probeContentType(imagePath);
-        } catch (IOException exception) {
-            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        }
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE : contentType))
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000")
-                .body(resource);
-    }
 
     private Review saveReview(Restaurant restaurant, User user, Integer rating, String comment, List<String> images) {
         Review review = reviewRepository.findByRestaurant_IdAndUser_Id(restaurant.getId(), user.getId())
@@ -258,8 +236,6 @@ public class ReviewController {
             throw new IllegalArgumentException("Too many review images");
         }
 
-        Files.createDirectories(reviewUploadRoot);
-
         return files.stream()
                 .filter(file -> file != null && !file.isEmpty())
                 .map(this::storeUploadedImage)
@@ -268,21 +244,12 @@ public class ReviewController {
 
     private String storeUploadedImage(MultipartFile file) {
         validateImage(file);
-
-        String extension = extensionFor(file);
-        String fileName = "review-" + UUID.randomUUID() + extension;
-        Path destination = reviewUploadRoot.resolve(fileName).normalize();
-
+        
         try {
-            Files.copy(file.getInputStream(), destination);
+            return supabaseStorageService.uploadImage(file, "reviews");
         } catch (IOException exception) {
             throw new IllegalArgumentException("Cannot store review image", exception);
         }
-
-        return ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/reviews/images/")
-                .path(fileName)
-                .toUriString();
     }
 
     private void validateImage(MultipartFile file) {
