@@ -23,6 +23,9 @@ import org.springframework.http.MediaType;
 import java.io.IOException;
 import java.util.Map;
 
+import com.jptaxi.application.service.ImageValidationException;
+import com.jptaxi.application.service.StorageImageType;
+
 import com.jptaxi.application.dto.CreateUserRequest;
 import com.jptaxi.application.dto.ForgotPasswordRequest;
 import com.jptaxi.application.dto.ForgotPasswordResponse;
@@ -147,10 +150,10 @@ public class UserController {
             if (image == null || image.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Image is required"));
             }
-            String url = supabaseStorageService.uploadImage(image, "avatars");
+            String url = supabaseStorageService.upload(image, StorageImageType.USER_AVATAR);
             return ResponseEntity.ok(Map.of("url", url));
-        } catch (IOException exception) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Cannot store avatar image"));
+        } catch (ImageValidationException exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", exception.getMessage()));
         }
     }
 

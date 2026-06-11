@@ -1,21 +1,13 @@
 package com.jptaxi.application.controller;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.jptaxi.application.dto.MenuItemDto;
 import com.jptaxi.application.dto.RestaurantDto;
@@ -43,34 +34,38 @@ import com.jptaxi.application.repository.RestaurantRepository;
 import com.jptaxi.application.repository.RestaurantTagRepository;
 import com.jptaxi.application.repository.UserRepository;
 import com.jptaxi.application.service.DtoMapper;
+import com.jptaxi.application.service.ImageValidationException;
+import com.jptaxi.application.service.StorageCleanupService;
+import com.jptaxi.application.service.StorageImageType;
 import com.jptaxi.application.service.SupabaseStorageService;
 
 @RestController
 @RequestMapping("/api/restaurants")
 public class RestaurantController {
 
-    private static final long MAX_IMAGE_SIZE_BYTES = 10L * 1024L * 1024L;
     private static final int MAX_RESTAURANT_IMAGES = 8;
-    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 
     private final RestaurantRepository restaurantRepository;
     private final RestaurantTagRepository restaurantTagRepository;
     private final UserRepository userRepository;
     private final DtoMapper mapper;
-    private final SupabaseStorageService supabaseStorageService;
+    private final SupabaseStorageService storageService;
+    private final StorageCleanupService cleanupService;
 
     public RestaurantController(
             RestaurantRepository restaurantRepository,
             RestaurantTagRepository restaurantTagRepository,
             UserRepository userRepository,
             DtoMapper mapper,
-            SupabaseStorageService supabaseStorageService
+            SupabaseStorageService storageService,
+            StorageCleanupService cleanupService
     ) {
         this.restaurantRepository = restaurantRepository;
         this.restaurantTagRepository = restaurantTagRepository;
         this.userRepository = userRepository;
         this.mapper = mapper;
-        this.supabaseStorageService = supabaseStorageService;
+        this.storageService = storageService;
+        this.cleanupService = cleanupService;
     }
 
     @GetMapping
@@ -106,30 +101,28 @@ public class RestaurantController {
             @RequestParam(value = "images", required = false) List<MultipartFile> images
     ) {
         try {
-            return ResponseEntity.ok(storeUploadedImages(images));
-        } catch (IllegalArgumentException | IOException exception) {
+            return ResponseEntity.ok(storageService.uploadAll(
+                    images,
+                    StorageImageType.RESTAURANT,
+                    MAX_RESTAURANT_IMAGES,
+                    "A restaurant can include up to 8 images"
+            ));
+        } catch (ImageValidationException exception) {
             return badRequest(exception.getMessage());
         }
     }
-
 
     @PostMapping(value = "/menu-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadMenuImage(
             @RequestParam("image") MultipartFile image
     ) {
         try {
-            if (image == null || image.isEmpty()) {
-                throw new IllegalArgumentException("Image is required");
-            }
-            validateImage(image);
-            
-            String url = supabaseStorageService.uploadImage(image, "menu_items");
+            String url = storageService.upload(image, StorageImageType.MENU_ITEM);
             return ResponseEntity.ok(Map.of("url", url));
-        } catch (IllegalArgumentException | IOException exception) {
+        } catch (ImageValidationException exception) {
             return badRequest(exception.getMessage());
         }
     }
-
 
     @PostMapping
     @Transactional
@@ -201,8 +194,13 @@ public class RestaurantController {
     ) {
         return restaurantRepository.findById(id)
                 .map(restaurant -> {
+                    Set<String> previousImageUrls = collectImageUrls(restaurant);
                     applyRestaurantRequest(restaurant, request);
-                    return ResponseEntity.ok(mapper.toRestaurantDto(restaurantRepository.save(restaurant)));
+                    Restaurant savedRestaurant = restaurantRepository.save(restaurant);
+                    Set<String> removedImageUrls = new HashSet<>(previousImageUrls);
+                    removedImageUrls.removeAll(collectImageUrls(savedRestaurant));
+                    cleanupService.deleteAfterCommit(removedImageUrls);
+                    return ResponseEntity.ok(mapper.toRestaurantDto(savedRestaurant));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -292,7 +290,7 @@ public class RestaurantController {
             
             String imageUrl = itemDto.image();
             if (imageUrl != null && imageUrl.startsWith("data:image/")) {
-                imageUrl = saveBase64Image(imageUrl);
+                imageUrl = storageService.uploadBase64Image(imageUrl, StorageImageType.MENU_ITEM);
             }
             item.setImage(imageUrl);
             
@@ -301,89 +299,20 @@ public class RestaurantController {
         }
     }
 
-    private String saveBase64Image(String base64Image) {
-        try {
-            String[] parts = base64Image.split(",");
-            String imageString = parts.length > 1 ? parts[1] : parts[0];
-            byte[] imageBytes = java.util.Base64.getDecoder().decode(imageString);
-
-            String extension = ".jpg";
-            if (parts.length > 1) {
-                String meta = parts[0];
-                if (meta.contains("image/png")) extension = ".png";
-                else if (meta.contains("image/webp")) extension = ".webp";
-                else if (meta.contains("image/jpeg")) extension = ".jpeg";
-            }
-
-            return supabaseStorageService.uploadBase64Image(imageBytes, extension, "menu_items");
-        } catch (Exception e) {
-            System.err.println("Failed to save base64 image: " + e.getMessage());
-            return null;
+    private Set<String> collectImageUrls(Restaurant restaurant) {
+        Set<String> imageUrls = new HashSet<>();
+        if (restaurant.getCoverImage() != null && !restaurant.getCoverImage().isBlank()) {
+            imageUrls.add(restaurant.getCoverImage());
         }
-    }
-
-    private List<String> storeUploadedImages(List<MultipartFile> files) throws IOException {
-        if (files == null || files.isEmpty()) {
-            return List.of();
-        }
-
-        List<MultipartFile> validFiles = files.stream()
-                .filter(file -> file != null && !file.isEmpty())
-                .toList();
-
-        if (validFiles.size() > MAX_RESTAURANT_IMAGES) {
-            throw new IllegalArgumentException("A restaurant can include up to 8 images");
-        }
-
-        return validFiles.stream()
-                .map(this::storeUploadedImage)
-                .toList();
-    }
-
-    private String storeUploadedImage(MultipartFile file) {
-        validateImage(file);
-
-        try {
-            return supabaseStorageService.uploadImage(file, "restaurants");
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("Cannot store restaurant image", exception);
-        }
-    }
-
-    private void validateImage(MultipartFile file) {
-        if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
-            throw new IllegalArgumentException("Each image must be 10MB or smaller");
-        }
-
-        String contentType = file.getContentType() == null
-                ? ""
-                : file.getContentType().toLowerCase(Locale.ROOT);
-
-        if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Only jpg, jpeg, png, and webp images are allowed");
-        }
-
-        String filename = file.getOriginalFilename() == null
-                ? ""
-                : file.getOriginalFilename().toLowerCase(Locale.ROOT);
-
-        if (!(filename.endsWith(".jpg")
-                || filename.endsWith(".jpeg")
-                || filename.endsWith(".png")
-                || filename.endsWith(".webp"))) {
-            throw new IllegalArgumentException("Only jpg, jpeg, png, and webp images are allowed");
-        }
-    }
-
-    private String extensionFor(MultipartFile file) {
-        String filename = file.getOriginalFilename() == null
-                ? ""
-                : file.getOriginalFilename().toLowerCase(Locale.ROOT);
-
-        if (filename.endsWith(".jpeg")) return ".jpeg";
-        if (filename.endsWith(".png")) return ".png";
-        if (filename.endsWith(".webp")) return ".webp";
-        return ".jpg";
+        restaurant.getImages().stream()
+                .map(RestaurantImage::getImageUrl)
+                .filter(url -> url != null && !url.isBlank())
+                .forEach(imageUrls::add);
+        restaurant.getMenuItems().stream()
+                .map(MenuItem::getImage)
+                .filter(url -> url != null && !url.isBlank())
+                .forEach(imageUrls::add);
+        return imageUrls;
     }
 
     private ResponseEntity<Map<String, String>> badRequest(String message) {

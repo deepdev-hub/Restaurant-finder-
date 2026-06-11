@@ -1,21 +1,13 @@
 package com.jptaxi.application.controller;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.MalformedURLException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.jptaxi.application.dto.CreateReviewRequest;
 import com.jptaxi.application.dto.ReviewDto;
@@ -43,22 +34,24 @@ import com.jptaxi.application.repository.ReviewReactionRepository;
 import com.jptaxi.application.repository.ReviewRepository;
 import com.jptaxi.application.repository.UserRepository;
 import com.jptaxi.application.service.DtoMapper;
+import com.jptaxi.application.service.ImageValidationException;
+import com.jptaxi.application.service.StorageCleanupService;
+import com.jptaxi.application.service.StorageImageType;
 import com.jptaxi.application.service.SupabaseStorageService;
 
 @RestController
 @RequestMapping("/api/reviews")
 public class ReviewController {
 
-    private static final long MAX_IMAGE_SIZE_BYTES = 10L * 1024L * 1024L;
     private static final int MAX_REVIEW_IMAGES = 3;
-    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 
     private final ReviewRepository reviewRepository;
     private final ReviewReactionRepository reviewReactionRepository;
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
     private final DtoMapper mapper;
-    private final SupabaseStorageService supabaseStorageService;
+    private final SupabaseStorageService storageService;
+    private final StorageCleanupService cleanupService;
 
     public ReviewController(
             ReviewRepository reviewRepository,
@@ -66,14 +59,16 @@ public class ReviewController {
             RestaurantRepository restaurantRepository,
             UserRepository userRepository,
             DtoMapper mapper,
-            SupabaseStorageService supabaseStorageService
+            SupabaseStorageService storageService,
+            StorageCleanupService cleanupService
     ) {
         this.reviewRepository = reviewRepository;
         this.reviewReactionRepository = reviewReactionRepository;
         this.restaurantRepository = restaurantRepository;
         this.userRepository = userRepository;
         this.mapper = mapper;
-        this.supabaseStorageService = supabaseStorageService;
+        this.storageService = storageService;
+        this.cleanupService = cleanupService;
     }
 
     @GetMapping
@@ -147,8 +142,13 @@ public class ReviewController {
 
         List<String> imageUrls;
         try {
-            imageUrls = storeUploadedImages(images);
-        } catch (IllegalArgumentException | IOException exception) {
+            imageUrls = storageService.uploadAll(
+                    images,
+                    StorageImageType.REVIEW,
+                    MAX_REVIEW_IMAGES,
+                    "A review can include up to 3 images"
+            );
+        } catch (ImageValidationException exception) {
             return badRequest(exception.getMessage());
         }
 
@@ -195,8 +195,6 @@ public class ReviewController {
         return ResponseEntity.ok(mapper.toReviewDto(reviewRepository.saveAndFlush(review), user.getId()));
     }
 
-
-
     private Review saveReview(Restaurant restaurant, User user, Integer rating, String comment, List<String> images) {
         Review review = reviewRepository.findByRestaurant_IdAndUser_Id(restaurant.getId(), user.getId())
                 .orElseGet(() -> {
@@ -208,6 +206,10 @@ public class ReviewController {
                     newReview.setDislikesCount(0);
                     return newReview;
                 });
+        Set<String> previousImageUrls = review.getImages().stream()
+                .map(ReviewImage::getImageUrl)
+                .filter(url -> url != null && !url.isBlank())
+                .collect(java.util.stream.Collectors.toSet());
 
         review.setRating(rating);
         review.setComment(comment.trim());
@@ -223,69 +225,15 @@ public class ReviewController {
         }
 
         Review savedReview = reviewRepository.saveAndFlush(review);
+        Set<String> currentImageUrls = savedReview.getImages().stream()
+                .map(ReviewImage::getImageUrl)
+                .filter(url -> url != null && !url.isBlank())
+                .collect(java.util.stream.Collectors.toSet());
+        Set<String> removedImageUrls = new HashSet<>(previousImageUrls);
+        removedImageUrls.removeAll(currentImageUrls);
+        cleanupService.deleteAfterCommit(removedImageUrls);
         refreshRestaurantStats(restaurant);
         return savedReview;
-    }
-
-    private List<String> storeUploadedImages(List<MultipartFile> files) throws IOException {
-        if (files == null || files.isEmpty()) {
-            return List.of();
-        }
-
-        if (files.stream().filter(file -> file != null && !file.isEmpty()).count() > MAX_REVIEW_IMAGES) {
-            throw new IllegalArgumentException("Too many review images");
-        }
-
-        return files.stream()
-                .filter(file -> file != null && !file.isEmpty())
-                .map(this::storeUploadedImage)
-                .toList();
-    }
-
-    private String storeUploadedImage(MultipartFile file) {
-        validateImage(file);
-        
-        try {
-            return supabaseStorageService.uploadImage(file, "reviews");
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("Cannot store review image", exception);
-        }
-    }
-
-    private void validateImage(MultipartFile file) {
-        if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
-            throw new IllegalArgumentException("Each image must be 10MB or smaller");
-        }
-
-        String contentType = file.getContentType() == null
-                ? ""
-                : file.getContentType().toLowerCase(Locale.ROOT);
-
-        if (!ALLOWED_IMAGE_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("Only jpg, jpeg, png, and webp images are allowed");
-        }
-
-        String filename = file.getOriginalFilename() == null
-                ? ""
-                : file.getOriginalFilename().toLowerCase(Locale.ROOT);
-
-        if (!(filename.endsWith(".jpg")
-                || filename.endsWith(".jpeg")
-                || filename.endsWith(".png")
-                || filename.endsWith(".webp"))) {
-            throw new IllegalArgumentException("Only jpg, jpeg, png, and webp images are allowed");
-        }
-    }
-
-    private String extensionFor(MultipartFile file) {
-        String filename = file.getOriginalFilename() == null
-                ? ""
-                : file.getOriginalFilename().toLowerCase(Locale.ROOT);
-
-        if (filename.endsWith(".jpeg")) return ".jpeg";
-        if (filename.endsWith(".png")) return ".png";
-        if (filename.endsWith(".webp")) return ".webp";
-        return ".jpg";
     }
 
     private String validateReviewRequest(
