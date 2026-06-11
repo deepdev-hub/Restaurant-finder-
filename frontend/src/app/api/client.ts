@@ -242,6 +242,12 @@ export function updateUser(id: string, data: Partial<User> & { password?: string
   });
 }
 
+export function uploadUserAvatar(imageFile: File) {
+  const formData = new FormData();
+  formData.append("image", imageFile);
+  return requestForm<{ url: string }>("/users/avatar", formData);
+}
+
 export function requestPasswordReset(data: { email: string }) {
   return request<{ message: string }>("/users/forgot-password", {
     method: "POST",
