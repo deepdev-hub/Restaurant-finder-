@@ -44,7 +44,7 @@ export function ForgotPasswordPage() {
       await getUserByEmail(email);
       setStep(2);
     } catch {
-      setError(t.forgotPassword?.errorInvalid || "Email không tồn tại trong hệ thống");
+      setError("Dịch vụ gửi email đang tạm thời gián đoạn. Vui lòng thử lại sau.");
     } finally {
       setLoading(false);
     }
