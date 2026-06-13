@@ -2,9 +2,28 @@ import type { Conversation, MenuItem, Message, Restaurant, Review, Role, User } 
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "http://localhost:8081/api";
 const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
+const rawPublicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.trim() || "";
+const PUBLIC_APP_URL = rawPublicAppUrl.replace(/\/+$/, "");
+
+function isLocalhostUrl(value: string) {
+  try {
+    const { hostname } = new URL(value);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
 
 function buildApiUrl(path: string) {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+export function getPublicAppUrl() {
+  if (PUBLIC_APP_URL) return PUBLIC_APP_URL;
+  if (typeof window !== "undefined" && window.location?.origin && !isLocalhostUrl(window.location.origin)) {
+    return window.location.origin;
+  }
+  return "http://localhost:5173";
 }
 
 const DEFAULT_FOOD_TAGS = [
@@ -163,6 +182,13 @@ export function uploadMenuImage(imageFile: File) {
   return requestForm<{ url: string }>("/restaurants/menu-images", formData);
 }
 
+export function uploadAvatarImage(userId: string, imageFile: File) {
+  const formData = new FormData();
+  formData.append("userId", userId);
+  formData.append("image", imageFile);
+  return requestForm<User>("/users/avatar", formData);
+}
+
 export function getReviews(restaurantId?: string, userId?: string) {
   const params = new URLSearchParams();
   if (restaurantId) params.set("restaurantId", restaurantId);
@@ -240,12 +266,6 @@ export function updateUser(id: string, data: Partial<User> & { password?: string
     method: "PUT",
     body: JSON.stringify(data),
   });
-}
-
-export function uploadUserAvatar(imageFile: File) {
-  const formData = new FormData();
-  formData.append("image", imageFile);
-  return requestForm<{ url: string }>("/users/avatar", formData);
 }
 
 export function requestPasswordReset(data: { email: string }) {
