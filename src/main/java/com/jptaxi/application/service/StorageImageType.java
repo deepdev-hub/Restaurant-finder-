@@ -4,7 +4,7 @@ public enum StorageImageType {
     RESTAURANT("restaurants", "restaurant-"),
     MENU_ITEM("menu-items", "menu-"),
     REVIEW("reviews", "review-"),
-    USER_AVATAR("avatars", "avatar-");
+    AVATAR("avatars", "avatar-");
 
     private final String directory;
     private final String filePrefix;

@@ -62,9 +62,17 @@ export function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { isLoggedIn, userLocation } = useAuth();
+  const { isLoggedIn, userLocation, currentUser } = useAuth();
   const { t } = useLanguage();
   const { data: rawRestaurants } = useApiData(getRestaurants, [], []);
+
+  const description = React.useMemo(() => {
+    if (isLoggedIn && currentUser) {
+      if (currentUser.role === "owner") return t.home.descriptionOwner;
+      if (currentUser.role === "diner") return t.home.descriptionDiner;
+    }
+    return t.home.description;
+  }, [isLoggedIn, currentUser, t.home]);
 
   const restaurants = React.useMemo(() => {
     if (!userLocation) return rawRestaurants;
@@ -137,7 +145,7 @@ export function HomePage() {
             </span>
           </h1>
           <p className="text-blue-100 text-base sm:text-lg mb-10 max-w-xl mx-auto">
-            {t.home.description}
+            {description}
           </p>
 
           {/* Search Bar */}

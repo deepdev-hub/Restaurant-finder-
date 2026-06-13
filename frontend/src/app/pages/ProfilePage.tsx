@@ -1,12 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { User, Mail, Phone, MapPin, Lock, Save, Store, Camera, CheckCircle } from "lucide-react";
-import { updateUser, uploadUserAvatar } from "../api/client";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Lock,
+  Save,
+  Store,
+  Camera,
+  CheckCircle,
+  AlertCircle,
+  LoaderCircle,
+} from "lucide-react";
+import { updateUser, uploadAvatarImage } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export function ProfilePage() {
-  const { currentUser, updateProfile, isLoggedIn } = useAuth();
+  const { currentUser, updateProfile, syncCurrentUser, isLoggedIn } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
@@ -20,32 +35,15 @@ export function ProfilePage() {
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
   const [activeTab, setActiveTab] = useState<"profile" | "password">("profile");
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentUser) return;
-
-    setUploadingAvatar(true);
-    try {
-      const { url } = await uploadUserAvatar(file);
-      await updateProfile({ ...currentUser, avatar: url });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (error) {
-      console.error("Failed to upload avatar", error);
-      alert("Failed to upload avatar. Please try again.");
-    } finally {
-      setUploadingAvatar(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
 
   useEffect(() => {
     if (!isLoggedIn) navigate("/login");
   }, [isLoggedIn, navigate]);
+
+  const avatarAlt = useMemo(() => currentUser?.name || "User avatar", [currentUser?.name]);
 
   if (!isLoggedIn || !currentUser) return null;
 
@@ -74,39 +72,60 @@ export function ProfilePage() {
     setPasswords({ current: "", new: "", confirm: "" });
   };
 
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setAvatarError("");
+
+    if (!file || avatarUploading) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setAvatarError("Vui long chon anh JPG, PNG hoac WEBP.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setAvatarError("Anh dai dien khong duoc vuot qua 10MB.");
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const savedUser = await uploadAvatarImage(currentUser.id, file);
+      syncCurrentUser(savedUser);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : "Khong the tai anh dai dien.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const roleLabel = currentUser.role === "owner" ? t.profile.ownerRole : t.profile.dinerRole;
   const roleBadgeColor = currentUser.role === "owner" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700";
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Profile Header */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
           <div className="flex flex-col sm:flex-row items-center gap-5">
             <div className="relative">
               <div className="w-24 h-24 rounded-full overflow-hidden bg-blue-100 flex items-center justify-center">
-                {uploadingAvatar ? (
-                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                ) : currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
+                {currentUser.avatar ? (
+                  <img src={currentUser.avatar} alt={avatarAlt} className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-10 h-10 text-blue-400" />
                 )}
               </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleAvatarChange}
-                accept="image/jpeg, image/png, image/webp"
-                className="hidden"
-              />
+              <label className={`absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-md transition-colors ${avatarUploading ? "bg-blue-400 cursor-wait" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"}`}>
+                {avatarUploading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarChange}
+                  disabled={avatarUploading}
+                  className="hidden"
+                />
+              </label>
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-gray-900">{currentUser.name}</h1>
@@ -136,8 +155,13 @@ export function ProfilePage() {
             {t.profile.saved}
           </div>
         )}
+        {avatarError && (
+          <div className="flex items-center gap-2 p-3 mb-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            <AlertCircle className="w-4 h-4" />
+            {avatarError}
+          </div>
+        )}
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setActiveTab("profile")}
@@ -157,7 +181,6 @@ export function ProfilePage() {
           </button>
         </div>
 
-        {/* Profile Form */}
         {activeTab === "profile" && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="text-gray-900 mb-6">{t.profile.basicInfoTitle}</h2>
@@ -229,7 +252,6 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* Password Form */}
         {activeTab === "password" && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6">
             <h2 className="text-gray-900 mb-6">{t.profile.passwordTitle}</h2>
