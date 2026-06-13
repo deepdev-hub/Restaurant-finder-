@@ -75,8 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!email || !password || !name) return { success: false, error: "Missing required fields" };
 
     try {
-      const newUser = await createUser({ name, email, password, role });
-      setCurrentUser(newUser);
+      await createUser({ name, email, password, role });
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || "Failed to create account" };

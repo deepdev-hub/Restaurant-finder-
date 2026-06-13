@@ -193,7 +193,11 @@ export function SearchResultsPage() {
     }
 
     if (selectedTags.length > 0) {
-      results = results.filter((r) => selectedTags.some((tag) => r.tags.includes(tag)));
+      results = results.filter((r) =>
+        selectedTags.some((selectedTag) =>
+          r.tags.some((rTag) => rTag.toLowerCase().includes(selectedTag.toLowerCase()))
+        )
+      );
     }
 
     if (openOnly) {
