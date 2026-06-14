@@ -67,9 +67,10 @@ export function HomePage() {
   const { data: rawRestaurants } = useApiData(getRestaurants, [], []);
 
   const description = React.useMemo(() => {
-    if (isLoggedIn && currentUser) {
-      if (currentUser.role === "owner") return t.home.descriptionOwner;
-      if (currentUser.role === "diner") return t.home.descriptionDiner;
+    if (isLoggedIn && currentUser && currentUser.role) {
+      const role = String(currentUser.role).toLowerCase();
+      if (role === "owner") return t.home.descriptionOwner || t.home.description;
+      if (role === "diner") return t.home.descriptionDiner || t.home.description;
     }
     return t.home.description;
   }, [isLoggedIn, currentUser, t.home]);
