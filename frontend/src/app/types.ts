@@ -36,21 +36,14 @@ export interface Review {
   userDisliked?: boolean;
 }
 
-export interface Restaurant {
+export interface RestaurantSummary {
   id: string;
   ownerId: string;
   nameVn: string;
   nameJp: string;
   address: string;
-  addressJp?: string;
-  phone: string;
-  description: string;
-  descriptionJp?: string;
   coverImage: string;
-  images: string[];
-  menu: MenuItem[];
   openHours: string;
-  priceRange: string;
   avgPrice: number;
   tags: string[];
   rating: number;
@@ -59,6 +52,16 @@ export interface Restaurant {
   status: "draft" | "open" | "closed" | "hidden" | "deleted";
   lat: number;
   lng: number;
+}
+
+export interface Restaurant extends RestaurantSummary {
+  addressJp?: string;
+  phone: string;
+  description: string;
+  descriptionJp?: string;
+  images: string[];
+  menu: MenuItem[];
+  priceRange: string;
 }
 
 export interface Message {
@@ -78,4 +81,10 @@ export interface Conversation {
   lastTimestamp: string;
   restaurantId?: string;
   restaurantName?: string;
+  restaurantOwnerId?: string;
+  restaurantCoverImage?: string;
+  restaurantAddress?: string;
+  otherUserId?: string;
+  otherUserName?: string;
+  otherUserAvatar?: string;
 }

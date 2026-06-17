@@ -9,7 +9,7 @@ import { RestaurantCard } from "../components/RestaurantCard";
 import { useAuth } from "../context/AuthContext";
 import { useApiData } from "../hooks/useApiData";
 import { useLanguage } from "../context/LanguageContext";
-import type { Restaurant } from "../types";
+import type { RestaurantSummary } from "../types";
 import { calculateDistance } from "../utils/distance";
 
 const HANOI_CENTER: [number, number] = [21.033, 105.848];
@@ -34,7 +34,7 @@ function userMarkerIcon() {
   });
 }
 
-function MapAutoFit({ restaurants }: { restaurants: Restaurant[] }) {
+function MapAutoFit({ restaurants }: { restaurants: RestaurantSummary[] }) {
   const map = useMap();
 
   React.useEffect(() => {

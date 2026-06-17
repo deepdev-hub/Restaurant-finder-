@@ -1,21 +1,22 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router";
 import { Search, SlidersHorizontal, Star, X, Navigation } from "lucide-react";
 import { divIcon, type LatLngBoundsExpression } from "leaflet";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { getFoodTags, getRestaurants } from "../api/client";
+import { getFoodTags, searchRestaurants } from "../api/client";
 import { RestaurantCard } from "../components/RestaurantCard";
 import { StarRating } from "../components/StarRating";
 import { useApiData } from "../hooks/useApiData";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
-import type { Restaurant } from "../types";
+import type { RestaurantSummary } from "../types";
 import { calculateDistance } from "../utils/distance";
 
 const HANOI_CENTER: [number, number] = [21.033, 105.848];
 const RESTAURANT_PLACEHOLDER =
   "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=240&fit=crop";
+const SEARCH_LIMIT = 5;
 
 function restaurantMarkerIcon(isSelected: boolean) {
   return divIcon({
@@ -41,7 +42,7 @@ function MapAutoFit({
   restaurants,
   selectedRestaurantId,
 }: {
-  restaurants: Restaurant[];
+  restaurants: RestaurantSummary[];
   selectedRestaurantId: string | null;
 }) {
   const map = useMap();
@@ -80,7 +81,7 @@ function RestaurantMarker({
   onClick,
   t,
 }: {
-  restaurant: Restaurant;
+  restaurant: RestaurantSummary;
   isSelected: boolean;
   onClick: () => void;
   t: any;
@@ -117,7 +118,7 @@ function RestaurantMarker({
             <div className="restaurant-map-popup__footer">
               <span className="restaurant-map-popup__rating">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                {Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "Chưa có đánh giá"}
+                {Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "Chua co danh gia"}
               </span>
               <Link to={`/restaurant/${restaurant.id}`}>
                 {t.search.detailLink}
@@ -138,19 +139,19 @@ export function SearchResultsPage() {
   const filterParam = searchParams.get("filter") || "";
   const tagParam = searchParams.get("tag") || "";
 
-  const priceRanges = [
+  const priceRanges = useMemo(() => ([
     { label: t.search.priceRanges[0].label, max: 50000 },
     { label: t.search.priceRanges[1].label, max: 100000, min: 50000 },
     { label: t.search.priceRanges[2].label, max: 200000, min: 100000 },
     { label: t.search.priceRanges[3].label, min: 200000 },
-  ];
+  ]), [t.search.priceRanges]);
 
-  const distanceRanges = [
+  const distanceRanges = useMemo(() => ([
     { label: t.search.distanceRanges[0].label, max: 0.5 },
     { label: t.search.distanceRanges[1].label, max: 1 },
     { label: t.search.distanceRanges[2].label, max: 2 },
     { label: t.search.distanceRanges[3].label, max: 5 },
-  ];
+  ]), [t.search.distanceRanges]);
 
   const [searchQuery, setSearchQuery] = useState(query);
   const [selectedTags, setSelectedTags] = useState<string[]>(tagParam ? [tagParam] : []);
@@ -162,64 +163,62 @@ export function SearchResultsPage() {
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("map");
-  const {
-    data: rawRestaurants,
-    loading: loadingRestaurants,
-    error: restaurantError,
-  } = useApiData(getRestaurants, [], []);
+  const [serverRestaurants, setServerRestaurants] = useState<RestaurantSummary[]>([]);
+  const [loadingRestaurants, setLoadingRestaurants] = useState(true);
+  const [restaurantError, setRestaurantError] = useState<string | null>(null);
   const { data: foodTags } = useApiData(getFoodTags, [], []);
 
+  useEffect(() => {
+    let mounted = true;
+    const timer = window.setTimeout(() => {
+      const selectedRange = selectedPriceRange !== null ? priceRanges[selectedPriceRange] : null;
+
+      setLoadingRestaurants(true);
+      setRestaurantError(null);
+
+      searchRestaurants({
+        q: searchQuery,
+        tags: selectedTags,
+        openOnly,
+        minRating: minRating > 0 ? minRating : undefined,
+        minAvgPrice: selectedRange?.min,
+        maxAvgPrice: selectedRange?.max,
+        limit: SEARCH_LIMIT,
+      })
+        .then((results) => {
+          if (mounted) setServerRestaurants(results);
+        })
+        .catch((error) => {
+          if (mounted) {
+            setRestaurantError(error instanceof Error ? error.message : "Cannot load restaurants");
+            setServerRestaurants([]);
+          }
+        })
+        .finally(() => {
+          if (mounted) setLoadingRestaurants(false);
+        });
+    }, 250);
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [minRating, openOnly, priceRanges, searchQuery, selectedPriceRange, selectedTags]);
+
   const restaurants = useMemo(() => {
-    if (!userLocation) return rawRestaurants;
-    return rawRestaurants.map((r) => ({
-      ...r,
-      distance: calculateDistance(userLocation.lat, userLocation.lng, r.lat, r.lng)
+    if (!userLocation) return serverRestaurants;
+    return serverRestaurants.map((restaurant) => ({
+      ...restaurant,
+      distance: calculateDistance(userLocation.lat, userLocation.lng, restaurant.lat, restaurant.lng),
     }));
-  }, [rawRestaurants, userLocation]);
+  }, [serverRestaurants, userLocation]);
 
   const filteredRestaurants = useMemo(() => {
     let results = [...restaurants];
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      results = results.filter(
-        (r) =>
-          r.nameVn.toLowerCase().includes(q) ||
-          r.nameJp.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q)) ||
-          r.description.toLowerCase().includes(q) ||
-          r.menu.some((m) => m.nameVn.toLowerCase().includes(q) || m.nameJp.includes(q))
-      );
-    }
-
-    if (selectedTags.length > 0) {
-      results = results.filter((r) =>
-        selectedTags.some((selectedTag) =>
-          r.tags.some((rTag) => rTag.toLowerCase().includes(selectedTag.toLowerCase()))
-        )
-      );
-    }
-
-    if (openOnly) {
-      results = results.filter((r) => r.status === "open");
-    }
-
-    if (selectedPriceRange !== null) {
-      const range = priceRanges[selectedPriceRange];
-      results = results.filter((r) => {
-        if (range.min && r.avgPrice < range.min) return false;
-        if (range.max && r.avgPrice > range.max) return false;
-        return true;
-      });
-    }
-
     if (selectedDistance !== null) {
       const range = distanceRanges[selectedDistance];
-      results = results.filter((r) => (r.distance || 0) <= range.max);
-    }
-
-    if (minRating > 0) {
-      results = results.filter((r) => r.rating >= minRating);
+      results = results.filter((restaurant) => (restaurant.distance || 0) <= range.max);
     }
 
     if (filterParam === "near") {
@@ -230,14 +229,15 @@ export function SearchResultsPage() {
       });
     }
 
-    if (filterParam === "popular" && results.length > 0) {
-      const maxRating = Math.max(...results.map((r) => r.rating));
-      results = results.filter((r) => r.rating === maxRating);
-      results.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+    if (filterParam === "popular") {
+      results.sort((a, b) => {
+        if (b.rating !== a.rating) return b.rating - a.rating;
+        return (b.reviewCount || 0) - (a.reviewCount || 0);
+      });
     }
 
     return results;
-  }, [restaurants, searchQuery, selectedTags, openOnly, selectedPriceRange, selectedDistance, minRating, filterParam]);
+  }, [distanceRanges, filterParam, restaurants, selectedDistance]);
 
   const restaurantsWithCoords = useMemo(
     () =>
@@ -249,7 +249,6 @@ export function SearchResultsPage() {
     [filteredRestaurants]
   );
 
-  // Auto-select top restaurant for "near" and "popular" filters
   useEffect(() => {
     if (filterParam === "near" || filterParam === "popular") {
       if (restaurantsWithCoords.length > 0 && !hasAutoSelected) {
@@ -263,7 +262,7 @@ export function SearchResultsPage() {
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((currentTag) => currentTag !== tag) : [...prev, tag]
     );
   };
 
@@ -282,12 +281,8 @@ export function SearchResultsPage() {
     openOnly ||
     minRating > 0;
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat("vi-VN").format(price) + "đ";
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Search Header */}
       <div className="bg-white border-b border-gray-100 sticky top-16 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center gap-3">
@@ -296,7 +291,7 @@ export function SearchResultsPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={t.search.placeholder}
                 className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
               />
@@ -322,7 +317,6 @@ export function SearchResultsPage() {
               )}
             </button>
 
-            {/* View toggle */}
             <div className="hidden md:flex rounded-xl border border-gray-200 overflow-hidden">
               <button
                 onClick={() => setViewMode("list")}
@@ -343,11 +337,9 @@ export function SearchResultsPage() {
             </div>
           </div>
 
-          {/* Filter Panel */}
           {showFilters && (
             <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Tags */}
                 <div>
                   <label className="text-xs text-gray-500 mb-2 block">{t.search.foodType}</label>
                   <div className="flex flex-wrap gap-1.5">
@@ -367,16 +359,15 @@ export function SearchResultsPage() {
                   </div>
                 </div>
 
-                {/* Price */}
                 <div>
                   <label className="text-xs text-gray-500 mb-2 block">{t.search.priceRange}</label>
                   <div className="space-y-1.5">
-                    {priceRanges.map((range, i) => (
+                    {priceRanges.map((range, index) => (
                       <button
-                        key={i}
-                        onClick={() => setSelectedPriceRange(selectedPriceRange === i ? null : i)}
+                        key={range.label}
+                        onClick={() => setSelectedPriceRange(selectedPriceRange === index ? null : index)}
                         className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg border transition-all ${
-                          selectedPriceRange === i
+                          selectedPriceRange === index
                             ? "bg-blue-600 text-white border-blue-600"
                             : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
                         }`}
@@ -387,16 +378,15 @@ export function SearchResultsPage() {
                   </div>
                 </div>
 
-                {/* Distance */}
                 <div>
                   <label className="text-xs text-gray-500 mb-2 block">{t.search.distance}</label>
                   <div className="space-y-1.5">
-                    {distanceRanges.map((range, i) => (
+                    {distanceRanges.map((range, index) => (
                       <button
-                        key={i}
-                        onClick={() => setSelectedDistance(selectedDistance === i ? null : i)}
+                        key={range.label}
+                        onClick={() => setSelectedDistance(selectedDistance === index ? null : index)}
                         className={`w-full text-left text-xs px-2.5 py-1.5 rounded-lg border transition-all ${
-                          selectedDistance === i
+                          selectedDistance === index
                             ? "bg-blue-600 text-white border-blue-600"
                             : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
                         }`}
@@ -407,7 +397,6 @@ export function SearchResultsPage() {
                   </div>
                 </div>
 
-                {/* Other filters */}
                 <div>
                   <label className="text-xs text-gray-500 mb-2 block">{t.search.other}</label>
                   <div className="space-y-2">
@@ -415,7 +404,7 @@ export function SearchResultsPage() {
                       <input
                         type="checkbox"
                         checked={openOnly}
-                        onChange={(e) => setOpenOnly(e.target.checked)}
+                        onChange={(event) => setOpenOnly(event.target.checked)}
                         className="w-4 h-4 rounded accent-blue-600"
                       />
                       <span className="text-xs text-gray-600">{t.search.openOnly}</span>
@@ -443,7 +432,6 @@ export function SearchResultsPage() {
             </div>
           )}
 
-          {/* Tag chips */}
           {selectedTags.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {selectedTags.map((tag) => (
@@ -462,27 +450,24 @@ export function SearchResultsPage() {
         </div>
       </div>
 
-      {/* Results count */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <p className="text-sm text-gray-500">
           <span className="text-gray-900">{filteredRestaurants.length}</span>
           {" "}{t.search.results}
-          {searchQuery && <span> — 「{searchQuery}」</span>}
+          {searchQuery && <span> - "{searchQuery}"</span>}
         </p>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         <div className="flex gap-6">
-          {/* Restaurant List */}
           <div className={`${viewMode === "map" ? "hidden md:block md:w-80 flex-shrink-0" : "flex-1"}`}>
             {loadingRestaurants ? (
               <div className="text-center py-16">
-                <p className="text-sm text-gray-400">Đang tải nhà hàng...</p>
+                <p className="text-sm text-gray-400">Dang tai nha hang...</p>
               </div>
             ) : restaurantError ? (
               <div className="text-center py-16">
-                <h3 className="text-gray-900 mb-2">Không thể tải danh sách nhà hàng</h3>
+                <h3 className="text-gray-900 mb-2">Khong the tai danh sach nha hang</h3>
                 <p className="text-sm text-gray-400">{restaurantError}</p>
               </div>
             ) : filteredRestaurants.length === 0 ? (
@@ -499,37 +484,36 @@ export function SearchResultsPage() {
               </div>
             ) : viewMode === "map" ? (
               <div className="space-y-2">
-                {filteredRestaurants.map((r) => (
+                {filteredRestaurants.map((restaurant) => (
                   <RestaurantCard
-                    key={r.id}
-                    restaurant={r}
+                    key={restaurant.id}
+                    restaurant={restaurant}
                     compact
-                    isSelected={selectedRestaurant === r.id}
-                    onClick={() => setSelectedRestaurant(selectedRestaurant === r.id ? null : r.id)}
+                    isSelected={selectedRestaurant === restaurant.id}
+                    onClick={() => setSelectedRestaurant(selectedRestaurant === restaurant.id ? null : restaurant.id)}
                   />
                 ))}
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredRestaurants.map((r) => (
-                  <RestaurantCard key={r.id} restaurant={r} />
+                {filteredRestaurants.map((restaurant) => (
+                  <RestaurantCard key={restaurant.id} restaurant={restaurant} />
                 ))}
               </div>
             )}
           </div>
 
-          {/* Map View */}
           {viewMode === "map" && (
             <div className="flex-1 sticky top-32 h-[calc(100vh-180px)]">
               <div className="w-full h-full bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm relative">
                 {loadingRestaurants ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-white">
-                    <p className="text-sm text-gray-400">Đang tải bản đồ...</p>
+                    <p className="text-sm text-gray-400">Dang tai ban do...</p>
                   </div>
                 ) : restaurantError ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-white p-6 text-center">
                     <div>
-                      <h3 className="text-gray-900 mb-2">Không thể tải bản đồ nhà hàng</h3>
+                      <h3 className="text-gray-900 mb-2">Khong the tai ban do nha hang</h3>
                       <p className="text-sm text-gray-400">{restaurantError}</p>
                     </div>
                   </div>
@@ -552,7 +536,7 @@ export function SearchResultsPage() {
                         icon={userMarkerIcon()}
                       >
                         <Popup minWidth={100} closeButton={false}>
-                          <div className="text-sm font-semibold text-center text-blue-600">Vị trí của bạn</div>
+                          <div className="text-sm font-semibold text-center text-blue-600">Vi tri cua ban</div>
                         </Popup>
                       </Marker>
                     )}

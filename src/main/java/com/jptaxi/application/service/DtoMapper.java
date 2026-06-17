@@ -2,7 +2,6 @@ package com.jptaxi.application.service;
 
 import java.util.List;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.ZoneId;
 
 import org.springframework.stereotype.Component;
@@ -23,16 +22,9 @@ import com.jptaxi.application.entity.Review;
 import com.jptaxi.application.entity.ReviewImage;
 import com.jptaxi.application.entity.ReviewReactionType;
 import com.jptaxi.application.entity.User;
-import com.jptaxi.application.repository.ReviewRepository;
 
 @Component
 public class DtoMapper {
-
-    private final ReviewRepository reviewRepository;
-
-    public DtoMapper(ReviewRepository reviewRepository) {
-        this.reviewRepository = reviewRepository;
-    }
 
     public UserDto toUserDto(User user) {
         return new UserDto(
@@ -48,17 +40,6 @@ public class DtoMapper {
     }
 
     public RestaurantDto toRestaurantDto(Restaurant restaurant) {
-        List<Review> reviews = reviewRepository.findByRestaurant_IdOrderByCreatedAtDesc(restaurant.getId());
-        
-        int reviewCount = reviews.size();
-        BigDecimal rating = reviews.isEmpty()
-                ? restaurant.getRating()
-                : BigDecimal.valueOf(reviews.stream()
-                        .mapToDouble(Review::getRating)
-                        .average()
-                        .orElse(0.0))
-                .setScale(1, RoundingMode.HALF_UP);
-
         return new RestaurantDto(
                 restaurant.getId(),
                 restaurant.getOwner().getId(),
@@ -76,8 +57,8 @@ public class DtoMapper {
                 restaurant.getPriceRange(),
                 restaurant.getAvgPrice(),
                 restaurant.getTags().stream().map(RestaurantTag::getTagName).toList(),
-                rating,
-                reviewCount,
+                restaurant.getRating(),
+                restaurant.getReviewCount(),
                 null,
                 restaurant.getStatus(),
                 restaurant.getLat(),
@@ -145,10 +126,21 @@ public class DtoMapper {
     }
 
     public ConversationDto toConversationDto(Conversation conversation) {
+        return toConversationDto(conversation, null);
+    }
+
+    public ConversationDto toConversationDto(Conversation conversation, String currentUserId) {
         List<String> participants = conversation.getParticipants()
                 .stream()
                 .map(participant -> participant.getUser().getId())
                 .toList();
+
+        User otherUser = conversation.getParticipants()
+                .stream()
+                .map(participant -> participant.getUser())
+                .filter(user -> currentUserId == null || !user.getId().equals(currentUserId))
+                .findFirst()
+                .orElse(null);
 
         return new ConversationDto(
                 conversation.getId(),
@@ -156,7 +148,13 @@ public class DtoMapper {
                 conversation.getLastMessage(),
                 conversation.getLastMessageAt() != null ? conversation.getLastMessageAt().atZone(ZoneId.systemDefault()) : null,
                 conversation.getRestaurant() == null ? null : conversation.getRestaurant().getId(),
-                conversation.getRestaurant() == null ? null : conversation.getRestaurant().getNameJp()
+                conversation.getRestaurant() == null ? null : conversation.getRestaurant().getNameJp(),
+                conversation.getRestaurant() == null ? null : conversation.getRestaurant().getOwner().getId(),
+                conversation.getRestaurant() == null ? null : conversation.getRestaurant().getCoverImage(),
+                conversation.getRestaurant() == null ? null : conversation.getRestaurant().getAddress(),
+                otherUser == null ? null : otherUser.getId(),
+                otherUser == null ? null : otherUser.getName(),
+                otherUser == null ? null : otherUser.getAvatar()
         );
     }
 }

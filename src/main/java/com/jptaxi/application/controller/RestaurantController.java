@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.jptaxi.application.dto.MenuItemDto;
 import com.jptaxi.application.dto.RestaurantDto;
+import com.jptaxi.application.dto.RestaurantSearchItemDto;
 import com.jptaxi.application.dto.SaveRestaurantRequest;
 import com.jptaxi.application.entity.MenuItem;
 import com.jptaxi.application.entity.Restaurant;
@@ -36,6 +37,7 @@ import com.jptaxi.application.repository.RestaurantTagRepository;
 import com.jptaxi.application.repository.UserRepository;
 import com.jptaxi.application.service.DtoMapper;
 import com.jptaxi.application.service.ImageValidationException;
+import com.jptaxi.application.service.RestaurantQueryService;
 import com.jptaxi.application.service.StorageCleanupService;
 import com.jptaxi.application.service.StorageImageType;
 import com.jptaxi.application.service.SupabaseStorageService;
@@ -50,6 +52,7 @@ public class RestaurantController {
     private final RestaurantTagRepository restaurantTagRepository;
     private final UserRepository userRepository;
     private final DtoMapper mapper;
+    private final RestaurantQueryService restaurantQueryService;
     private final SupabaseStorageService storageService;
     private final StorageCleanupService cleanupService;
 
@@ -58,6 +61,7 @@ public class RestaurantController {
             RestaurantTagRepository restaurantTagRepository,
             UserRepository userRepository,
             DtoMapper mapper,
+            RestaurantQueryService restaurantQueryService,
             SupabaseStorageService storageService,
             StorageCleanupService cleanupService
     ) {
@@ -65,21 +69,37 @@ public class RestaurantController {
         this.restaurantTagRepository = restaurantTagRepository;
         this.userRepository = userRepository;
         this.mapper = mapper;
+        this.restaurantQueryService = restaurantQueryService;
         this.storageService = storageService;
         this.cleanupService = cleanupService;
     }
 
     @GetMapping
     @Transactional(readOnly = true)
-    public List<RestaurantDto> getRestaurants(@RequestParam(required = false) String ownerId) {
-        if (ownerId != null && !ownerId.isBlank()) {
-            return restaurantRepository.findByOwner_IdOrderByNameJpAsc(ownerId)
-                    .stream()
-                    .map(mapper::toRestaurantDto)
-                    .toList();
-        }
+    public List<RestaurantSearchItemDto> getRestaurants(@RequestParam(required = false) String ownerId) {
+        return restaurantQueryService.getRestaurantSummaries(ownerId);
+    }
 
-        return restaurantRepository.findAll().stream().map(mapper::toRestaurantDto).toList();
+    @GetMapping("/search")
+    @Transactional(readOnly = true)
+    public List<RestaurantSearchItemDto> searchRestaurants(
+            @RequestParam(required = false) String q,
+            @RequestParam(name = "tag", required = false) List<String> tags,
+            @RequestParam(defaultValue = "false") boolean openOnly,
+            @RequestParam(required = false) BigDecimal minRating,
+            @RequestParam(required = false) BigDecimal minAvgPrice,
+            @RequestParam(required = false) BigDecimal maxAvgPrice,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return restaurantQueryService.searchRestaurants(
+                q,
+                tags,
+                openOnly,
+                minRating,
+                minAvgPrice,
+                maxAvgPrice,
+                limit
+        );
     }
 
     @GetMapping("/{id}")

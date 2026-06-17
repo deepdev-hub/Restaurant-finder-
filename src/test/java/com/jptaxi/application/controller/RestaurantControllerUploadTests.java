@@ -27,6 +27,7 @@ import com.jptaxi.application.repository.RestaurantRepository;
 import com.jptaxi.application.repository.RestaurantTagRepository;
 import com.jptaxi.application.repository.UserRepository;
 import com.jptaxi.application.service.DtoMapper;
+import com.jptaxi.application.service.RestaurantQueryService;
 import com.jptaxi.application.service.StorageCleanupService;
 import com.jptaxi.application.service.StorageImageType;
 import com.jptaxi.application.service.SupabaseStorageService;
@@ -41,6 +42,7 @@ class RestaurantControllerUploadTests {
                 mock(RestaurantTagRepository.class),
                 mock(UserRepository.class),
                 mock(DtoMapper.class),
+                mock(RestaurantQueryService.class),
                 storageService,
                 mock(StorageCleanupService.class)
         );
@@ -80,6 +82,7 @@ class RestaurantControllerUploadTests {
                 mock(RestaurantTagRepository.class),
                 mock(UserRepository.class),
                 mock(DtoMapper.class),
+                mock(RestaurantQueryService.class),
                 mock(SupabaseStorageService.class),
                 cleanupService
         );

@@ -1,7 +1,6 @@
 package com.jptaxi.application.controller;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,13 +61,9 @@ public class ChatController {
     @GetMapping("/conversations")
     @Transactional(readOnly = true)
     public List<ConversationDto> getConversations(@RequestParam String userId) {
-        return conversationParticipantRepository.findByUser_Id(userId)
+        return conversationParticipantRepository.findConversationListByUserId(userId)
                 .stream()
-                .sorted(Comparator.comparing(
-                        participant -> conversationSortTime(participant.getConversation()),
-                        Comparator.reverseOrder()
-                ))
-                .map(participant -> mapper.toConversationDto(participant.getConversation()))
+                .map(participant -> mapper.toConversationDto(participant.getConversation(), userId))
                 .toList();
     }
 
@@ -126,7 +121,7 @@ public class ChatController {
         }
 
         Conversation conversation = resolveConversation(null, sender, receiver, restaurant);
-        return ResponseEntity.ok(mapper.toConversationDto(conversation));
+        return ResponseEntity.ok(mapper.toConversationDto(conversation, sender.getId()));
     }
 
     @PostMapping("/messages")
@@ -172,23 +167,6 @@ public class ChatController {
 
         return ResponseEntity.ok(mapper.toMessageDto(savedMessage));
     }
-
-    private LocalDateTime conversationSortTime(Conversation conversation) {
-        if (conversation.getLastMessageAt() != null) {
-            return conversation.getLastMessageAt();
-        }
-
-        if (conversation.getUpdatedAt() != null) {
-            return conversation.getUpdatedAt();
-        }
-
-        if (conversation.getCreatedAt() != null) {
-            return conversation.getCreatedAt();
-        }
-
-        return LocalDateTime.MIN;
-    }
-
     private Conversation resolveConversation(String conversationId, User sender, User receiver, Restaurant restaurant) {
         if (conversationId != null && !conversationId.isBlank()) {
             return conversationRepository.findById(conversationId)
