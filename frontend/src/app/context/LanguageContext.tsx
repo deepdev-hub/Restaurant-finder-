@@ -419,6 +419,10 @@ const translations = {
       errorImageSize: "各写真は10MB以下にしてください",
       errorImageType: "jpg, jpeg, png, webp形式の写真のみアップロードできます",
       submitError: "保存できません。もう一度お試しください。",
+      saveAll: "すべての変更を保存",
+      cancel: "キャンセル",
+      saveSuccess: "すべての変更が保存されました！",
+      saveError: "保存中にエラーが発生しました！",
     },
     // Restaurant Card
     card: {
@@ -845,6 +849,10 @@ const translations = {
       errorImageSize: "Mỗi ảnh phải nhỏ hơn hoặc bằng 10MB",
       errorImageType: "Chỉ cho phép ảnh jpg, jpeg, png hoặc webp",
       submitError: "Không thể lưu thay đổi. Vui lòng thử lại.",
+      saveAll: "Lưu tất cả thay đổi",
+      cancel: "Hủy bỏ",
+      saveSuccess: "Đã lưu toàn bộ thay đổi thành công!",
+      saveError: "Có lỗi xảy ra khi lưu!",
     },
     // Restaurant Card
     card: {

@@ -171,6 +171,12 @@ export function updateRestaurant(id: string, data: SaveRestaurantPayload) {
   });
 }
 
+export function deleteRestaurant(id: string, ownerId: string) {
+  return request<void>(`/restaurants/${encodeURIComponent(id)}?ownerId=${encodeURIComponent(ownerId)}`, {
+    method: "DELETE",
+  });
+}
+
 export function uploadRestaurantImages(imageFiles: File[]) {
   return uploadImagesInChunks("/restaurants/images", imageFiles, 8);
 }

@@ -3,6 +3,7 @@ package com.jptaxi.application.service;
 import java.util.List;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.ZoneId;
 
 import org.springframework.stereotype.Component;
 
@@ -138,7 +139,7 @@ public class DtoMapper {
                 message.getReceiver() == null ? null : message.getReceiver().getId(),
                 message.getRestaurant() == null ? null : message.getRestaurant().getId(),
                 message.getContent(),
-                message.getCreatedAt(),
+                message.getCreatedAt() != null ? message.getCreatedAt().atZone(ZoneId.systemDefault()) : null,
                 message.getIsRead()
         );
     }
@@ -153,7 +154,7 @@ public class DtoMapper {
                 conversation.getId(),
                 participants,
                 conversation.getLastMessage(),
-                conversation.getLastMessageAt(),
+                conversation.getLastMessageAt() != null ? conversation.getLastMessageAt().atZone(ZoneId.systemDefault()) : null,
                 conversation.getRestaurant() == null ? null : conversation.getRestaurant().getId(),
                 conversation.getRestaurant() == null ? null : conversation.getRestaurant().getNameJp()
         );

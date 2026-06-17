@@ -212,13 +212,14 @@ export function ManageRestaurantPage() {
       setMenuItems(savedRestaurant.menu);
       setImages(savedRestaurant.images);
       setPhotosTouched(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      alert(t.manageStore.saveSuccess || "Đã lưu toàn bộ thay đổi thành công!");
+      navigate('/owner/restaurants');
+
     } catch (err) {
       const message = err instanceof Error && err.message
-        ? err.message
-        : t.manageStore.submitError;
+        : (t.manageStore.saveError || "Có lỗi xảy ra khi lưu!");
       setErrors((prev) => ({ ...prev, submit: message }));
+      alert(message);
     } finally {
       setSaving(false);
     }
@@ -553,16 +554,6 @@ export function ManageRestaurantPage() {
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 resize-none"
                 />
               </div>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-3 text-white rounded-xl text-sm transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #0066CC 0%, #004499 100%)" }}
-              >
-                <Save className="w-4 h-4" />
-                {t.manageStore.saveChanges}
-              </button>
             </div>
           )}
 
@@ -671,15 +662,6 @@ export function ManageRestaurantPage() {
                   {errors.menuImages}
                 </p>
               )}
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-3 mt-5 text-white rounded-xl text-sm transition-all hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #0066CC 0%, #004499 100%)" }}
-              >
-                <Save className="w-4 h-4" />
-                {t.manageStore.saveMenu}
-              </button>
             </div>
           )}
 
@@ -762,18 +744,35 @@ export function ManageRestaurantPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
 
+          {/* Sticky Save Bar */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="max-w-3xl mx-auto flex items-center justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => navigate('/owner/restaurants')}
+                disabled={saving}
+                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {t.manageStore.cancel || "Hủy bỏ"}
+              </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-3 text-white rounded-xl text-sm transition-all hover:opacity-90"
+                className="flex items-center justify-center gap-2 px-8 py-2.5 text-white rounded-xl text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #0066CC 0%, #004499 100%)" }}
               >
-                <Save className="w-4 h-4" />
-                {t.manageStore.savePhotos}
+                {saving ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {saving ? "..." : (t.manageStore.saveAll || "Lưu tất cả thay đổi")}
               </button>
             </div>
-          )}
+          </div>
         </form>
       </div>
     </div>

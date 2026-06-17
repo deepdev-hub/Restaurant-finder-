@@ -1,6 +1,6 @@
 package com.jptaxi.application.dto;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 public record MessageDto(
         String id,
@@ -8,7 +8,7 @@ public record MessageDto(
         String receiverId,
         String restaurantId,
         String content,
-        LocalDateTime timestamp,
+        ZonedDateTime timestamp,
         Boolean read
 ) {
 }

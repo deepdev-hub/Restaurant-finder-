@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -201,6 +202,31 @@ public class RestaurantController {
                     removedImageUrls.removeAll(collectImageUrls(savedRestaurant));
                     cleanupService.deleteAfterCommit(removedImageUrls);
                     return ResponseEntity.ok(mapper.toRestaurantDto(savedRestaurant));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    @Transactional
+    public ResponseEntity<?> deleteRestaurant(
+            @PathVariable String id,
+            @RequestParam String ownerId
+    ) {
+        if (ownerId == null || ownerId.isBlank()) {
+            return badRequest("Owner ID is required");
+        }
+
+        return restaurantRepository.findById(id)
+                .map(restaurant -> {
+                    if (!restaurant.getOwner().getId().equals(ownerId)) {
+                        return ResponseEntity.status(403).body(Map.of("message", "You don't have permission to delete this restaurant"));
+                    }
+
+                    Set<String> imageUrls = collectImageUrls(restaurant);
+                    restaurantRepository.delete(restaurant);
+                    cleanupService.deleteAfterCommit(imageUrls);
+
+                    return ResponseEntity.ok().build();
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

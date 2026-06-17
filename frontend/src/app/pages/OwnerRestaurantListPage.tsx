@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router";
-import { Plus, Star, MessageCircle, Edit, Store, ChevronRight, Eye } from "lucide-react";
-import { getRestaurants } from "../api/client";
+import { Plus, Star, MessageCircle, Edit, Store, ChevronRight, Eye, Trash2, AlertCircle } from "lucide-react";
+import { getRestaurants, deleteRestaurant } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useApiData } from "../hooks/useApiData";
 import { useLanguage } from "../context/LanguageContext";
@@ -10,11 +10,30 @@ export function OwnerRestaurantListPage() {
   const { currentUser, isLoggedIn } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { data: restaurants } = useApiData(
+  const { data: restaurants, setData: setRestaurants } = useApiData(
     () => currentUser ? getRestaurants(currentUser.id) : Promise.resolve([]),
     [currentUser?.id],
     []
   );
+
+  const [restaurantToDelete, setRestaurantToDelete] = React.useState<{id: string, name: string} | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const handleDelete = async () => {
+    if (!restaurantToDelete || !currentUser) return;
+    try {
+      setIsDeleting(true);
+      await deleteRestaurant(restaurantToDelete.id, currentUser.id);
+      setRestaurants(prev => prev.filter(r => r.id !== restaurantToDelete.id));
+      setRestaurantToDelete(null);
+      // Optional: show a toast success here
+    } catch (error) {
+      console.error("Failed to delete restaurant:", error);
+      alert(t.ownerList.deleteError || "Có lỗi xảy ra khi xóa quán.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   React.useEffect(() => {
     if (!isLoggedIn) navigate("/login");
@@ -138,6 +157,13 @@ export function OwnerRestaurantListPage() {
                         <MessageCircle className="w-4 h-4" />
                         {t.ownerList.messages}
                       </Link>
+                      <button
+                        onClick={() => setRestaurantToDelete({ id: restaurant.id, name: restaurant.nameJp })}
+                        className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors ml-auto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {t.ownerList.deleteBtn || "Xóa"}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -157,6 +183,48 @@ export function OwnerRestaurantListPage() {
           </Link>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {restaurantToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">
+                {t.ownerList.deleteConfirmTitle || "Xóa vĩnh viễn quán?"}
+              </h3>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Bạn có chắc chắn muốn xóa vĩnh viễn quán <span className="font-semibold text-gray-900">{restaurantToDelete.name}</span> không? Toàn bộ dữ liệu về thực đơn, đánh giá, và hình ảnh sẽ bị xóa sạch và KHÔNG THỂ khôi phục.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setRestaurantToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {t.common?.cancel || "Hủy"}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                {isDeleting ? "Đang xóa..." : "Xóa vĩnh viễn"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
