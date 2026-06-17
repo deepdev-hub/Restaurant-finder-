@@ -216,8 +216,9 @@ export function ManageRestaurantPage() {
       navigate('/owner/restaurants');
 
     } catch (err) {
-      const message = err instanceof Error && err.message
-        : (t.manageStore.saveError || "Có lỗi xảy ra khi lưu!");
+        const message = err instanceof Error && err.message
+          ? err.message
+          : (t.manageStore.saveError || "Có lỗi xảy ra khi lưu!");
       setErrors((prev) => ({ ...prev, submit: message }));
       alert(message);
     } finally {
