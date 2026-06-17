@@ -1,7 +1,10 @@
 package com.jptaxi.application.controller;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -61,9 +64,20 @@ public class ChatController {
     @GetMapping("/conversations")
     @Transactional(readOnly = true)
     public List<ConversationDto> getConversations(@RequestParam String userId) {
-        return conversationParticipantRepository.findConversationListByUserId(userId)
+        List<String> conversationIds = conversationRepository.findConversationIdsByUserId(userId);
+        if (conversationIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Integer> orderById = new HashMap<>();
+        for (int index = 0; index < conversationIds.size(); index++) {
+            orderById.put(conversationIds.get(index), index);
+        }
+
+        return conversationRepository.findConversationListByIds(conversationIds)
                 .stream()
-                .map(participant -> mapper.toConversationDto(participant.getConversation(), userId))
+                .sorted(Comparator.comparingInt(conversation -> orderById.getOrDefault(conversation.getId(), Integer.MAX_VALUE)))
+                .map(conversation -> mapper.toConversationDto(conversation, userId))
                 .toList();
     }
 
