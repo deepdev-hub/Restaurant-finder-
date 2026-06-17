@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jptaxi.application.dto.RestaurantSearchItemDto;
-import com.jptaxi.application.entity.RestaurantStatus;
 import com.jptaxi.application.repository.RestaurantRepository;
 import com.jptaxi.application.repository.RestaurantSummaryProjection;
 import com.jptaxi.application.repository.RestaurantTagProjection;
@@ -59,7 +58,6 @@ public class RestaurantQueryService {
         List<RestaurantSummaryProjection> rows = restaurantRepository.searchSummaries(
                 normalizedQuery == null ? null : "%" + normalizedQuery + "%",
                 openOnly,
-                RestaurantStatus.open,
                 minRating,
                 minAvgPrice,
                 maxAvgPrice,
