@@ -748,9 +748,8 @@ export function ManageRestaurantPage() {
             </div>
           )}
 
-          {/* Sticky Save Bar */}
-          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="max-w-3xl mx-auto flex items-center justify-end gap-4">
+          {/* Save Action */}
+          <div className="mt-8 flex items-center justify-end gap-4">
               <button
                 type="button"
                 onClick={() => navigate('/owner/restaurants')}
@@ -773,7 +772,6 @@ export function ManageRestaurantPage() {
                 {saving ? "..." : (t.manageStore.saveAll || "Lưu tất cả thay đổi")}
               </button>
             </div>
-          </div>
         </form>
       </div>
     </div>
