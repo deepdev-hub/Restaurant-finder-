@@ -20,8 +20,8 @@ import com.jptaxi.application.repository.RestaurantTagRepository;
 @Service
 public class RestaurantQueryService {
 
-    private static final int DEFAULT_SEARCH_LIMIT = 5;
-    private static final int MAX_SEARCH_LIMIT = 5;
+    private static final int DEFAULT_SEARCH_LIMIT = 20;
+    private static final int MAX_SEARCH_LIMIT = 20;
 
     private final RestaurantRepository restaurantRepository;
     private final RestaurantTagRepository restaurantTagRepository;
