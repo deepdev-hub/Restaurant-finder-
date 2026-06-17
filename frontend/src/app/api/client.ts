@@ -43,7 +43,21 @@ const DEFAULT_FOOD_TAGS = [
   "Sáng/朝食",
   "Trưa/昼食",
   "Tối/夕食",
+  // New generic tags
+  "Heo/豚肉",
+  "Lẩu/鍋",
+  "Nướng/焼き物",
+  "Đồ chiên xào/炒め物・揚げ物",
+  "Món cuốn/巻き物",
+  "Bún - Mì/麺類",
+  "Cháo/お粥",
+  "Xôi/おこわ",
+  "Món nhậu/居酒屋メニュー",
+  "Ăn vặt/軽食",
+  "Tráng miệng/デザート",
+  "Đồ uống/飲み物",
 ];
+
 
 export interface SaveRestaurantPayload {
   ownerId?: string;

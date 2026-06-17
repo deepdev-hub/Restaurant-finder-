@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Eye, EyeOff, MapPin, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { CustomAlert } from "../components/CustomAlert";
 import { useLanguage } from "../context/LanguageContext";
 
 export function SignupPage() {
@@ -19,6 +20,12 @@ export function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, type: 'success' | 'error' | 'info', title: string, message: string}>({
+    isOpen: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
 
   const handleChange = (key: string, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -46,8 +53,12 @@ export function SignupPage() {
     const result = await signup(formData.email, formData.password, formData.name, formData.role);
     setLoading(false);
     if (result.success) {
-      alert(t.signup.successAlert);
-      navigate("/login");
+      setAlertConfig({
+        isOpen: true,
+        type: 'success',
+        title: 'Thành công',
+        message: t.signup.successAlert
+      });
     } else {
       if (result.error && result.error.includes("Email already exists")) {
         setError(t.signup.errorEmailExists);
@@ -69,6 +80,19 @@ export function SignupPage() {
   const strength = passwordStrength();
 
   return (
+    <>
+    <CustomAlert
+      isOpen={alertConfig.isOpen}
+      type={alertConfig.type}
+      title={alertConfig.title}
+      message={alertConfig.message}
+      onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+      onConfirm={() => {
+        if (alertConfig.type === 'success') {
+          navigate("/login");
+        }
+      }}
+    />
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
@@ -239,5 +263,6 @@ export function SignupPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
