@@ -9,6 +9,12 @@ public record ConversationDto(
         String lastMessage,
         ZonedDateTime lastTimestamp,
         String restaurantId,
-        String restaurantName
+        String restaurantName,
+        String restaurantOwnerId,
+        String restaurantCoverImage,
+        String restaurantAddress,
+        String otherUserId,
+        String otherUserName,
+        String otherUserAvatar
 ) {
 }

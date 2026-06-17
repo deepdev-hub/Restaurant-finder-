@@ -6,10 +6,9 @@ import {
   createMessage,
   getConversations,
   getMessages,
-  getRestaurants,
-  getUsers,
+  getRestaurant,
 } from "../api/client";
-import type { Conversation, Message, Restaurant, User } from "../types";
+import type { Conversation, Message, RestaurantSummary } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -23,8 +22,7 @@ export function ChatPage() {
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationData, setConversationData] = useState<Conversation[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantById, setRestaurantById] = useState<Record<string, RestaurantSummary>>({});
   const [newMessage, setNewMessage] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -46,19 +44,40 @@ export function ChatPage() {
 
     Promise.all([
       getConversations(currentUser.id),
-      getUsers(),
-      getRestaurants(),
+      restaurantParam ? getRestaurant(restaurantParam) : Promise.resolve(null),
     ])
-      .then(async ([conversationResult, userResult, restaurantResult]) => {
+      .then(async ([conversationResult, selectedRestaurant]) => {
         if (!mounted) return;
 
         let nextConversations = conversationResult;
         let nextSelected = selectedConv ?? conversationResult[0]?.id ?? null;
+        const nextRestaurantById: Record<string, RestaurantSummary> = {};
+
+        conversationResult.forEach((conversation) => {
+          if (!conversation.restaurantId) return;
+          nextRestaurantById[conversation.restaurantId] = {
+            id: conversation.restaurantId,
+            ownerId: conversation.restaurantOwnerId || "",
+            nameVn: conversation.restaurantName || "",
+            nameJp: conversation.restaurantName || "",
+            address: conversation.restaurantAddress || "",
+            coverImage: conversation.restaurantCoverImage || "",
+            openHours: "",
+            avgPrice: 0,
+            tags: [],
+            rating: 0,
+            reviewCount: 0,
+            status: "closed",
+            lat: 0,
+            lng: 0,
+          };
+        });
 
         if (restaurantParam) {
-          const targetRestaurant = restaurantResult.find((restaurant) => restaurant.id === restaurantParam);
+          const targetRestaurant = selectedRestaurant;
 
           if (targetRestaurant && targetRestaurant.ownerId !== currentUser.id) {
+            nextRestaurantById[targetRestaurant.id] = targetRestaurant;
             const existingConversation = conversationResult.find(
               (conversation) =>
                 conversation.restaurantId === restaurantParam &&
@@ -81,8 +100,7 @@ export function ChatPage() {
 
         if (!mounted) return;
         setConversationData(nextConversations);
-        setUsers(userResult);
-        setRestaurants(restaurantResult);
+        setRestaurantById(nextRestaurantById);
         setSelectedConv(nextSelected);
       })
       .catch((err) => {
@@ -98,16 +116,19 @@ export function ChatPage() {
   }, [currentUser, restaurantParam]);
 
   const conversations = currentUser ? conversationData.map((conv) => {
-    const otherUserId = conv.participants.find((participant) => participant !== currentUser.id);
-    const otherUser =
-      users.find((user) => user.id === otherUserId) ||
-      users.find((user) => user.id !== currentUser.id) ||
-      currentUser;
     const restaurant = conv.restaurantId
-      ? restaurants.find((item) => item.id === conv.restaurantId) || null
+      ? restaurantById[conv.restaurantId] || null
       : null;
 
-    return { ...conv, otherUser, restaurant };
+    return {
+      ...conv,
+      otherUser: {
+        id: conv.otherUserId || "",
+        name: conv.otherUserName || "",
+        avatar: conv.otherUserAvatar,
+      },
+      restaurant,
+    };
   }) : [];
 
   const filteredConversations = conversations.filter((conversation) => {
@@ -123,18 +144,7 @@ export function ChatPage() {
   });
 
   const activeConversation = conversations.find((conv) => conv.id === selectedConv);
-  const convMessages = activeConversation
-    ? messages.filter((message) => {
-        const matchesUsers =
-          activeConversation.participants.includes(message.senderId) &&
-          activeConversation.participants.includes(message.receiverId);
-        const matchesRestaurant =
-          !activeConversation.restaurantId ||
-          message.restaurantId === activeConversation.restaurantId;
-
-        return matchesUsers && matchesRestaurant;
-      })
-    : [];
+  const convMessages = activeConversation ? messages : [];
 
   useEffect(() => {
     if (!currentUser || !selectedConv) {

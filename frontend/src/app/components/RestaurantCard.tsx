@@ -1,12 +1,12 @@
 import React from "react";
 import { Link } from "react-router";
 import { MapPin, Clock, Star, ChevronRight } from "lucide-react";
-import type { Restaurant } from "../types";
+import type { RestaurantSummary } from "../types";
 import { StarRating } from "./StarRating";
 import { useLanguage } from "../context/LanguageContext";
 
 interface RestaurantCardProps {
-  restaurant: Restaurant;
+  restaurant: RestaurantSummary;
   compact?: boolean;
   isSelected?: boolean;
   onClick?: () => void;

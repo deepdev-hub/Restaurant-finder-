@@ -1,4 +1,4 @@
-import type { Conversation, MenuItem, Message, Restaurant, Review, Role, User } from "../types";
+import type { Conversation, MenuItem, Message, Restaurant, RestaurantSummary, Review, Role, User } from "../types";
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "http://localhost:8081/api";
 const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
@@ -133,7 +133,30 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
 
 export function getRestaurants(ownerId?: string) {
   const query = ownerId ? `?ownerId=${encodeURIComponent(ownerId)}` : "";
-  return request<Restaurant[]>(`/restaurants${query}`);
+  return request<RestaurantSummary[]>(`/restaurants${query}`);
+}
+
+export function searchRestaurants(params: {
+  q?: string;
+  tags?: string[];
+  openOnly?: boolean;
+  minRating?: number;
+  minAvgPrice?: number;
+  maxAvgPrice?: number;
+  limit?: number;
+}) {
+  const query = new URLSearchParams();
+
+  if (params.q?.trim()) query.set("q", params.q.trim());
+  params.tags?.filter((tag) => tag.trim()).forEach((tag) => query.append("tag", tag.trim()));
+  if (params.openOnly) query.set("openOnly", "true");
+  if (params.minRating && params.minRating > 0) query.set("minRating", String(params.minRating));
+  if (typeof params.minAvgPrice === "number") query.set("minAvgPrice", String(params.minAvgPrice));
+  if (typeof params.maxAvgPrice === "number") query.set("maxAvgPrice", String(params.maxAvgPrice));
+  if (typeof params.limit === "number") query.set("limit", String(params.limit));
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<RestaurantSummary[]>(`/restaurants/search${suffix}`);
 }
 
 export function getRestaurant(id: string) {
