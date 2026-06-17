@@ -8,7 +8,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.jptaxi.application.entity.RestaurantStatus;
 import com.jptaxi.application.entity.Restaurant;
 
 public interface RestaurantRepository extends JpaRepository<Restaurant, String> {
@@ -88,7 +87,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, String> 
                               or lower(coalesce(item.nameJp, '')) like :queryLike
                           )
                     ))
-              and (:openOnly = false or r.status = :openStatus)
+              and (:openOnly = false or r.status = com.jptaxi.application.entity.RestaurantStatus.open)
               and (:minRating is null or r.rating >= :minRating)
               and (:minAvgPrice is null or r.avgPrice >= :minAvgPrice)
               and (:maxAvgPrice is null or r.avgPrice <= :maxAvgPrice)
@@ -103,7 +102,6 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, String> 
     List<RestaurantSummaryProjection> searchSummaries(
             @Param("queryLike") String queryLike,
             @Param("openOnly") boolean openOnly,
-            @Param("openStatus") RestaurantStatus openStatus,
             @Param("minRating") BigDecimal minRating,
             @Param("minAvgPrice") BigDecimal minAvgPrice,
             @Param("maxAvgPrice") BigDecimal maxAvgPrice,

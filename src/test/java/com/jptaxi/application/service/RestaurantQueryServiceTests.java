@@ -30,7 +30,6 @@ class RestaurantQueryServiceTests {
         when(restaurantRepository.searchSummaries(
                 eq("%pho%"),
                 eq(true),
-                eq(RestaurantStatus.open),
                 eq(new BigDecimal("4.0")),
                 eq(new BigDecimal("50000")),
                 eq(new BigDecimal("100000")),
@@ -56,7 +55,6 @@ class RestaurantQueryServiceTests {
         verify(restaurantRepository).searchSummaries(
                 eq("%pho%"),
                 eq(true),
-                eq(RestaurantStatus.open),
                 eq(new BigDecimal("4.0")),
                 eq(new BigDecimal("50000")),
                 eq(new BigDecimal("100000")),
