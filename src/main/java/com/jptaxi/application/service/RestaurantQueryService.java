@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,9 +20,6 @@ import com.jptaxi.application.repository.RestaurantTagRepository;
 
 @Service
 public class RestaurantQueryService {
-
-    private static final int DEFAULT_SEARCH_LIMIT = 20;
-    private static final int MAX_SEARCH_LIMIT = 20;
 
     private final RestaurantRepository restaurantRepository;
     private final RestaurantTagRepository restaurantTagRepository;
@@ -54,7 +52,6 @@ public class RestaurantQueryService {
     ) {
         List<String> normalizedTags = normalizeTags(tags);
         String normalizedQuery = normalizeQuery(query);
-        int resolvedLimit = resolveLimit(limit);
         List<RestaurantSummaryProjection> rows = restaurantRepository.searchSummaries(
                 normalizedQuery == null ? null : "%" + normalizedQuery + "%",
                 openOnly,
@@ -63,7 +60,7 @@ public class RestaurantQueryService {
                 maxAvgPrice,
                 !normalizedTags.isEmpty(),
                 normalizedTags.isEmpty() ? List.of("__unused__") : normalizedTags,
-                PageRequest.of(0, resolvedLimit)
+                resolvePageable(limit)
         );
         return toDtos(rows);
     }
@@ -123,8 +120,10 @@ public class RestaurantQueryService {
         return query.trim().toLowerCase(Locale.ROOT);
     }
 
-    private int resolveLimit(Integer limit) {
-        if (limit == null || limit <= 0) return DEFAULT_SEARCH_LIMIT;
-        return Math.min(limit, MAX_SEARCH_LIMIT);
+    private Pageable resolvePageable(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return Pageable.unpaged();
+        }
+        return PageRequest.of(0, limit);
     }
 }

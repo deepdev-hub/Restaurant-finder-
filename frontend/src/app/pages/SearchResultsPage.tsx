@@ -16,7 +16,6 @@ import { calculateDistance } from "../utils/distance";
 const HANOI_CENTER: [number, number] = [21.033, 105.848];
 const RESTAURANT_PLACEHOLDER =
   "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=240&fit=crop";
-const SEARCH_LIMIT = 5;
 
 function restaurantMarkerIcon(isSelected: boolean) {
   return divIcon({
@@ -183,7 +182,6 @@ export function SearchResultsPage() {
         minRating: minRating > 0 ? minRating : undefined,
         minAvgPrice: selectedRange?.min,
         maxAvgPrice: selectedRange?.max,
-        limit: SEARCH_LIMIT,
       })
         .then((results) => {
           if (mounted) setServerRestaurants(results);

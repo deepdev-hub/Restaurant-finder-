@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.jptaxi.application.dto.RestaurantSearchItemDto;
@@ -23,7 +24,7 @@ import com.jptaxi.application.repository.RestaurantTagRepository;
 class RestaurantQueryServiceTests {
 
     @Test
-    void searchCapsLimitNormalizesQueryAndBuildsSummaryDtos() {
+    void searchWithoutLimitReturnsAllMatchesAndBuildsSummaryDtos() {
         RestaurantRepository restaurantRepository = mock(RestaurantRepository.class);
         RestaurantTagRepository tagRepository = mock(RestaurantTagRepository.class);
         RestaurantQueryService service = new RestaurantQueryService(restaurantRepository, tagRepository);
@@ -47,7 +48,7 @@ class RestaurantQueryServiceTests {
                 new BigDecimal("4.0"),
                 new BigDecimal("50000"),
                 new BigDecimal("100000"),
-                20
+                null
         );
 
         assertThat(items).hasSize(1);
@@ -60,7 +61,38 @@ class RestaurantQueryServiceTests {
                 eq(new BigDecimal("100000")),
                 eq(true),
                 eq(List.of("pho", "bun cha")),
-                eq(Pageable.ofSize(5))
+                eq(Pageable.unpaged())
+        );
+    }
+
+    @Test
+    void searchRespectsExplicitLimitWhenProvided() {
+        RestaurantRepository restaurantRepository = mock(RestaurantRepository.class);
+        RestaurantTagRepository tagRepository = mock(RestaurantTagRepository.class);
+        RestaurantQueryService service = new RestaurantQueryService(restaurantRepository, tagRepository);
+        when(restaurantRepository.searchSummaries(
+                eq(null),
+                eq(false),
+                eq(null),
+                eq(null),
+                eq(null),
+                eq(false),
+                eq(List.of("__unused__")),
+                any(Pageable.class)
+        )).thenReturn(List.of(summary("r1", "u1", "Pho Bac")));
+        when(tagRepository.findTagSummariesByRestaurantIds(List.of("r1"))).thenReturn(List.of());
+
+        service.searchRestaurants(null, List.of(), false, null, null, null, 7);
+
+        verify(restaurantRepository).searchSummaries(
+                eq(null),
+                eq(false),
+                eq(null),
+                eq(null),
+                eq(null),
+                eq(false),
+                eq(List.of("__unused__")),
+                eq(PageRequest.of(0, 7))
         );
     }
 
