@@ -43,14 +43,20 @@ export function CustomAlert({
 
   const getButtonClass = () => {
     switch (type) {
-      case 'success':
-        return 'bg-green-600 hover:bg-green-700 focus:ring-green-500';
       case 'error':
         return 'bg-red-600 hover:bg-red-700 focus:ring-red-500';
+      case 'success':
       case 'info':
       default:
-        return 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500';
+        return 'hover:opacity-90 focus:ring-blue-500';
     }
+  };
+
+  const getButtonStyle = () => {
+    if (type === 'success' || type === 'info') {
+      return { background: "linear-gradient(135deg, #0066CC 0%, #004499 100%)" };
+    }
+    return {};
   };
 
   return (
@@ -79,7 +85,8 @@ export function CustomAlert({
           
           <button
             onClick={handleConfirm}
-            className={`w-full py-3 px-4 text-white font-medium rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${getButtonClass()}`}
+            className={`w-full py-3 px-4 text-white font-medium rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 ${getButtonClass()}`}
+            style={getButtonStyle()}
           >
             {confirmText}
           </button>

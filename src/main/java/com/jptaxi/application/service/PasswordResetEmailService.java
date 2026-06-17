@@ -7,7 +7,7 @@ import org.springframework.web.util.HtmlUtils;
 @Service
 public class PasswordResetEmailService {
 
-    private static final String SUBJECT = "Đặt lại mật khẩu Restaurant Finder";
+    private static final String SUBJECT = "Restaurant Finder パスワードリセット";
 
     private final ResendEmailClient resendEmailClient;
     private final long expirationMinutes;
@@ -24,34 +24,34 @@ public class PasswordResetEmailService {
         String safeResetLink = HtmlUtils.htmlEscape(resetLink);
         String html = """
                 <!doctype html>
-                <html lang="vi">
+                <html lang="ja">
                 <body style="margin:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#172033">
                   <div style="max-width:560px;margin:32px auto;padding:32px;background:#ffffff;border-radius:16px">
-                    <h1 style="font-size:24px;margin:0 0 16px">Đặt lại mật khẩu</h1>
-                    <p>Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản Restaurant Finder.</p>
+                    <h1 style="font-size:24px;margin:0 0 16px">パスワードをリセット</h1>
+                    <p>Restaurant Finderアカウントのパスワードリセットがリクエストされました。</p>
                     <p style="margin:28px 0">
                       <a href="%s" style="display:inline-block;padding:12px 20px;background:#0066cc;color:#ffffff;text-decoration:none;border-radius:10px">
-                        Đặt lại mật khẩu
+                        パスワードをリセットする
                       </a>
                     </p>
-                    <p>Liên kết này sẽ hết hạn sau %d phút và chỉ sử dụng được một lần.</p>
-                    <p>Nếu nút không hoạt động, hãy mở liên kết sau:</p>
+                    <p>このリンクは %d 分後に無効になり、1回のみ使用できます。</p>
+                    <p>ボタンが機能しない場合は、次のリンクを開いてください：</p>
                     <p style="word-break:break-all"><a href="%s">%s</a></p>
-                    <p>Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
+                    <p>パスワードリセットをリクエストしていない場合は、このメールを無視してください。</p>
                   </div>
                 </body>
                 </html>
                 """.formatted(safeResetLink, expirationMinutes, safeResetLink, safeResetLink);
         String text = """
-                Xin chào,
+                こんにちは、
 
-                Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản Restaurant Finder.
-                Mở liên kết sau để đặt mật khẩu mới:
+                Restaurant Finderアカウントのパスワードリセットがリクエストされました。
+                以下のリンクを開いて新しいパスワードを設定してください：
 
                 %s
 
-                Liên kết này sẽ hết hạn sau %d phút và chỉ sử dụng được một lần.
-                Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.
+                このリンクは %d 分後に無効になり、1回のみ使用できます。
+                パスワードリセットをリクエストしていない場合は、このメールを無視してください。
                 """.formatted(resetLink, expirationMinutes);
 
         resendEmailClient.send(email, SUBJECT, html, text);

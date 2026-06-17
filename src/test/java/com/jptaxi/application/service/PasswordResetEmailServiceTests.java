@@ -26,13 +26,13 @@ class PasswordResetEmailServiceTests {
                 htmlCaptor.capture(),
                 textCaptor.capture()
         );
-        assertThat(subjectCaptor.getValue()).isEqualTo("Đặt lại mật khẩu Restaurant Finder");
+        assertThat(subjectCaptor.getValue()).isEqualTo("Restaurant Finder パスワードリセット");
         assertThat(htmlCaptor.getValue())
                 .contains(resetLink)
-                .contains("30 phút")
-                .contains("Đặt lại mật khẩu");
+                .contains("30 分後")
+                .contains("パスワードをリセット");
         assertThat(textCaptor.getValue())
                 .contains(resetLink)
-                .contains("30 phút");
+                .contains("30 分後");
     }
 }

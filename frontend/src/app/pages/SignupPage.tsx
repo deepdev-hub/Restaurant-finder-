@@ -56,7 +56,7 @@ export function SignupPage() {
       setAlertConfig({
         isOpen: true,
         type: 'success',
-        title: 'Thành công',
+        title: t.signup.successTitle,
         message: t.signup.successAlert
       });
     } else {

@@ -23,7 +23,7 @@ export function ResetPasswordPage() {
     setError("");
 
     if (!token) {
-      setError("Link reset mat khau khong hop le.");
+      setError(t.resetPassword.errorInvalidLink);
       return;
     }
 
@@ -43,7 +43,7 @@ export function ResetPasswordPage() {
       setSuccess(true);
       setTimeout(() => navigate("/login"), 2500);
     } catch {
-      setError("Link reset da het han hoac khong hop le.");
+      setError(t.resetPassword.errorExpired);
     } finally {
       setLoading(false);
     }
@@ -56,8 +56,8 @@ export function ResetPasswordPage() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h2 className="text-gray-900 mb-2">Mat khau da duoc cap nhat</h2>
-          <p className="text-sm text-gray-600 mb-6">Ban co the dang nhap bang mat khau moi.</p>
+          <h2 className="text-gray-900 mb-2">{t.resetPassword.successTitle}</h2>
+          <p className="text-sm text-gray-600 mb-6">{t.resetPassword.successDesc}</p>
           <Link to="/login" className="text-sm text-blue-600 hover:text-blue-700">
             {t.forgotPassword.backToLogin}
           </Link>
@@ -78,8 +78,8 @@ export function ResetPasswordPage() {
               <MapPin className="w-6 h-6 text-white" />
             </div>
           </Link>
-          <h1 className="text-gray-900 mt-4">Dat mat khau moi</h1>
-          <p className="text-sm text-gray-400 mt-1">Nhap mat khau moi cho tai khoan cua ban</p>
+          <h1 className="text-gray-900 mt-4">{t.resetPassword.title}</h1>
+          <p className="text-sm text-gray-400 mt-1">{t.resetPassword.subtitle}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
@@ -139,7 +139,7 @@ export function ResetPasswordPage() {
               className="w-full py-3 text-white rounded-xl text-sm transition-all hover:opacity-90 disabled:opacity-60"
               style={{ background: "linear-gradient(135deg, #0066CC 0%, #004499 100%)" }}
             >
-              {loading ? "Dang cap nhat..." : "Cap nhat mat khau"}
+              {loading ? t.resetPassword.updating : t.resetPassword.submitBtn}
             </button>
           </form>
         </div>

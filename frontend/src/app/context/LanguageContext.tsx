@@ -172,6 +172,17 @@ const translations = {
       errorInvalid: "有効なメールアドレスを入力してください",
       errorNotFound: "このメールアドレスは登録されていません",
     },
+    // Reset Password
+    resetPassword: {
+      title: "新しいパスワードを設定",
+      subtitle: "アカウントの新しいパスワードを入力してください",
+      submitBtn: "パスワードを更新",
+      updating: "更新中...",
+      successTitle: "パスワードが更新されました",
+      successDesc: "新しいパスワードでログインできます。",
+      errorInvalidLink: "無効なリセットリンクです。",
+      errorExpired: "リセットリンクの有効期限が切れているか、無効です。",
+    },
     // Signup
     signup: {
       title: "新規登録",
@@ -203,6 +214,7 @@ const translations = {
       errorPasswordShort: "パスワードは6文字以上で入力してください",
       errorPasswordMismatch: "パスワードが一致しません",
       errorEmailExists: "このメールアドレスはすでに登録されています",
+      successTitle: "成功しました",
       successAlert: "アカウントが作成されました！ログイン画面に移動します...",
     },
     // Chat
@@ -586,6 +598,17 @@ const translations = {
       errorInvalid: "Email không hợp lệ",
       errorNotFound: "Email này chưa được đăng ký",
     },
+    // Reset Password
+    resetPassword: {
+      title: "Đặt mật khẩu mới",
+      subtitle: "Nhập mật khẩu mới cho tài khoản của bạn",
+      submitBtn: "Cập nhật mật khẩu",
+      updating: "Đang cập nhật...",
+      successTitle: "Mật khẩu đã được cập nhật",
+      successDesc: "Bạn có thể đăng nhập bằng mật khẩu mới.",
+      errorInvalidLink: "Link reset mật khẩu không hợp lệ.",
+      errorExpired: "Link reset đã hết hạn hoặc không hợp lệ.",
+    },
     // Signup
     signup: {
       title: "Đăng ký",
@@ -617,6 +640,7 @@ const translations = {
       errorPasswordShort: "Mật khẩu phải có ít nhất 6 ký tự",
       errorPasswordMismatch: "Mật khẩu không khớp",
       errorEmailExists: "Email này đã tồn tại, vui lòng nhập lại",
+      successTitle: "Thành công",
       successAlert: "Đăng ký thành công! Đang chuyển hướng đến trang đăng nhập...",
     },
     // Chat
