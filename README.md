@@ -550,11 +550,8 @@ git push origin feature/restaurant-search
 
 | STT | Họ tên        | Vai trò                  |
 | --- | ------------  | ------------------------ |
-| 1   | Lương Văn Hưng| Backend / Authentication |
-| 2   | Nguyễn Quang Thiện  | Frontend / Backend                |
-| 3   | Đàm Vĩnh Hưng  | Database                 |
-| 4   | Trần Duy Hưng  | UI/UX                    |
-| 5   | Đào Nhật Hưng | Testing / Documentation  |
+| 1   | Lương Văn Hưng| Backend / Authentication / Database|
+| 2   | Nguyễn Quang Thiện  | Frontend / Backend / UI/UX / Testing / Documentation|
 
 ## 17. Định hướng phát triển trong tương lai
 
